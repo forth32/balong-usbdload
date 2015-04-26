@@ -4,14 +4,29 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <termios.h>
-#include <unistd.h>
+//#include <termios.h>
+//#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+//#include <arpa/inet.h>
+#ifndef WIN32
+#include <termios.h>
+#include <unistd.h>
 #include <arpa/inet.h>
+#else
+#include <windows.h>
+#include "wingetopt.h"
+#include "printf.h"
+#endif
 
+
+#ifndef WIN32
 int siofd;
+struct termios sioparm;
+#else
+static HANDLE hSerial;
+#endif
 FILE* ldr;
 
 
@@ -71,14 +86,30 @@ int sendcmd(unsigned char* cmdbuf, int len) {
 
 unsigned char replybuf[1024];
 unsigned int replylen;
-  
+
+#ifndef WIN32
 csum(cmdbuf,len);
 write(siofd,cmdbuf,len);  // отсылка команды
 tcdrain(siofd);
 replylen=read(siofd,replybuf,1024);
+#else
+    DWORD bytes_written = 0;
+    DWORD t;
+
+    csum(cmdbuf,len);
+    WriteFile(hSerial, cmdbuf, len, &bytes_written, NULL);
+    FlushFileBuffers(hSerial);
+
+    t = GetTickCount();
+    csum(cmdbuf,len);
+
+    do {
+        ReadFile(hSerial, replybuf, len, (LPDWORD)&replylen, NULL);
+    } while (replylen == 0 && GetTickCount() - t < 1000);
+#endif
 if ((replylen == 0) || (replybuf[0] == 0xaa)) return 1;
 return 0;
-}  
+}
 
 
 
@@ -89,8 +120,13 @@ return 0;
 
 void main(int argc, char* argv[]) {
 
+#ifndef WIN32
 struct termios sioparm;
-char* lptr;
+#else
+    char device[20] = "\\\\.\\COM";
+    DCB dcbSerialParams = {0};
+#endif
+//char* lptr;
 unsigned int i,res,opt,datasize,pktcount,adr;
 int nblk;   // число блоков для загрузки
 int bl;    // текущий блок
@@ -106,7 +142,11 @@ struct {
   int offset; // смещение до блока от начала файла
 } blk[10];
 
+#ifndef WIN32
 unsigned char devname[50]="/dev/ttyUSB0";
+#else
+char devname[50]="";
+#endif
 
 while ((opt = getopt(argc, argv, "hp:sa:")) != -1) {
   switch (opt) {
@@ -131,6 +171,15 @@ if (optind>=argc) {
     return;
 }  
 
+#ifdef WIN32
+if (*devname == '\0')
+{
+   printf("\n - Последовательный порт не задан\n"); 
+   return; 
+}
+#endif
+
+#ifndef WIN32
 // Настройка SIO
 siofd = open(devname, O_RDWR | O_NOCTTY |O_SYNC);
 if (siofd == -1) {
@@ -138,7 +187,6 @@ if (siofd == -1) {
     return;
  }
 
- 
 bzero(&sioparm, sizeof(sioparm));
 sioparm.c_cflag = B115200 | CS8 | CLOCAL | CREAD;
 sioparm.c_iflag = 0;  // INPCK;
@@ -149,9 +197,36 @@ sioparm.c_cc[VMIN]=1;   // 1 байт минимального ответа
 
 tcsetattr(siofd, TCSANOW, &sioparm);
 tcflush(siofd,TCIOFLUSH);  // очистка выходного буфера
+#else
+    strcat(device, /*(char*)*/devname);
+    
+    hSerial = CreateFileA(device, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    if (hSerial == INVALID_HANDLE_VALUE)
+    {
+        printf("\n - Последовательный порт COM%s не открывается\n", devname); 
+        return;
+    }
 
+    dcbSerialParams.DCBlength=sizeof(dcbSerialParams);
+    if (!GetCommState(hSerial, &dcbSerialParams))
+    {
+        CloseHandle(hSerial);
+        printf("\n - Ошибка при инициализайии COM-порта\n", devname); 
+        return;
+    }
+    dcbSerialParams.BaudRate=CBR_115200;
+    dcbSerialParams.ByteSize=8;
+    dcbSerialParams.StopBits=ONESTOPBIT;
+    dcbSerialParams.Parity=NOPARITY;
+    if(!SetCommState(hSerial, &dcbSerialParams))
+    {
+        printf("\n - Ошибка при инициализайии COM-порта\n", devname); 
+        CloseHandle(hSerial);
+        return;
+    }
+#endif
 
-ldr=fopen(argv[optind],"r");
+ldr=fopen(argv[optind],"rb");
 if (ldr == 0) {
   printf("\n Ошибка открытия %s",argv[optind]);
   return;
@@ -202,7 +277,11 @@ for(bl=0;bl<nblk;bl++) {
 
   for(adr=0;adr<blk[bl].size;adr+=1024) {
     if ((adr+1024)>=blk[bl].size) datasize=blk[bl].size-adr;  
+#ifndef WIN32
     fprintf(stderr,"\r Адрес: %08x, пакет# %i  размер: %i",blk[bl].adr+adr,pktcount,datasize);
+#else
+    printf("\r Адрес: %08x, пакет# %i  размер: %i",blk[bl].adr+adr,pktcount,datasize);
+#endif
 
     // читаем порцию данных
     if (datasize != fread(cmddata+3,1,datasize,ldr)) {
