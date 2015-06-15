@@ -96,15 +96,13 @@ replylen=read(siofd,replybuf,1024);
     DWORD bytes_written = 0;
     DWORD t;
 
-    csum(cmdbuf,len);
+    csum(cmdbuf, len);
     WriteFile(hSerial, cmdbuf, len, &bytes_written, NULL);
     FlushFileBuffers(hSerial);
 
     t = GetTickCount();
-    csum(cmdbuf,len);
-
     do {
-        ReadFile(hSerial, replybuf, len, (LPDWORD)&replylen, NULL);
+        ReadFile(hSerial, replybuf, 1024, (LPDWORD)&replylen, NULL);
     } while (replylen == 0 && GetTickCount() - t < 1000);
 #endif
 if ((replylen == 0) || (replybuf[0] == 0xaa)) return 1;
@@ -125,6 +123,7 @@ struct termios sioparm;
 #else
     char device[20] = "\\\\.\\COM";
     DCB dcbSerialParams = {0};
+    COMMTIMEOUTS CommTimeouts;
 #endif
 //char* lptr;
 unsigned int i,res,opt,datasize,pktcount,adr;
@@ -207,20 +206,30 @@ tcflush(siofd,TCIOFLUSH);  // очистка выходного буфера
         return;
     }
 
+    ZeroMemory(&dcbSerialParams, sizeof(dcbSerialParams));
     dcbSerialParams.DCBlength=sizeof(dcbSerialParams);
-    if (!GetCommState(hSerial, &dcbSerialParams))
+    dcbSerialParams.BaudRate = CBR_115200;
+    dcbSerialParams.ByteSize = 8;
+    dcbSerialParams.StopBits = ONESTOPBIT;
+    dcbSerialParams.Parity = NOPARITY;
+    dcbSerialParams.fBinary = TRUE;
+    dcbSerialParams.fDtrControl = DTR_CONTROL_ENABLE;
+    dcbSerialParams.fRtsControl = RTS_CONTROL_ENABLE;
+    if (!SetCommState(hSerial, &dcbSerialParams))
     {
+        printf("\n - Ошибка при инициализации COM-порта\n", devname); 
         CloseHandle(hSerial);
-        printf("\n - Ошибка при инициализайии COM-порта\n", devname); 
         return;
     }
-    dcbSerialParams.BaudRate=CBR_115200;
-    dcbSerialParams.ByteSize=8;
-    dcbSerialParams.StopBits=ONESTOPBIT;
-    dcbSerialParams.Parity=NOPARITY;
-    if(!SetCommState(hSerial, &dcbSerialParams))
+
+    CommTimeouts.ReadIntervalTimeout = MAXDWORD;
+    CommTimeouts.ReadTotalTimeoutConstant = 0;
+    CommTimeouts.ReadTotalTimeoutMultiplier = 0;
+    CommTimeouts.WriteTotalTimeoutConstant = 0;
+    CommTimeouts.WriteTotalTimeoutMultiplier = 0;
+    if (!SetCommTimeouts(hSerial, &CommTimeouts))
     {
-        printf("\n - Ошибка при инициализайии COM-порта\n", devname); 
+        printf("\n - Ошибка при инициализации COM-порта\n", devname); 
         CloseHandle(hSerial);
         return;
     }
