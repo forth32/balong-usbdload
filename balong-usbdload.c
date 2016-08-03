@@ -105,7 +105,8 @@ replylen=read(siofd,replybuf,1024);
         ReadFile(hSerial, replybuf, 1024, (LPDWORD)&replylen, NULL);
     } while (replylen == 0 && GetTickCount() - t < 1000);
 #endif
-if ((replylen == 0) || (replybuf[0] == 0xaa)) return 1;
+if (replylen == 0) return 0;    
+if (replybuf[0] == 0xaa) return 1;
 return 0;
 }
 
