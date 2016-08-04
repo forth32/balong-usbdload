@@ -124,6 +124,7 @@ struct termios sioparm;
     char device[20] = "\\\\.\\COM";
     DCB dcbSerialParams = {0};
     COMMTIMEOUTS CommTimeouts;
+    DWORD bytes_written, bytes_read;
 #endif
 //char* lptr;
 unsigned int i,res,opt,datasize,pktcount,adr;
@@ -264,8 +265,15 @@ printf("\n Найдено %i блоков для загрузки",nblk);
 
 // Проверяем загрузочный порт
 c=0;
+#ifndef WIN32
 write(siofd,"A",1);
 res=read(siofd,&c,1);
+#else
+    WriteFile(hSerial, "A", 1, &bytes_written, NULL);
+    FlushFileBuffers(hSerial);
+    Sleep(100);
+    ReadFile(hSerial, &c, 1, &bytes_read, NULL);
+#endif
 if (c != 0x55) {
   printf("\n ! Порт не находится в режиме USB Boot\n");
   return;
