@@ -9,7 +9,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-//#include <arpa/inet.h>
 #ifndef WIN32
 #include <termios.h>
 #include <unistd.h>
@@ -130,6 +129,7 @@ struct termios sioparm;
 unsigned int i,res,opt,datasize,pktcount,adr;
 int nblk;   // число блоков для загрузки
 int bl;    // текущий блок
+unsigned char c;
 
 unsigned char cmdhead[14]={0xfe,0, 0xff};
 unsigned char cmddata[1040]={0xda,0,0};
@@ -261,6 +261,15 @@ for(nblk=0;nblk<10;nblk++) {
  if (blk[nblk].lmode == 0) break;
 } 
 printf("\n Найдено %i блоков для загрузки",nblk);
+
+// Проверяем загрузочный порт
+c=0;
+write(siofd,"A",1);
+res=read(siofd,&c,1);
+if (c != 0x55) {
+  printf("\n ! Порт не находится в режиме USB Boot\n");
+  return;
+}  
 
 // главный цикл загрузки - загружаем все блоки, найденные в заголовке
 
