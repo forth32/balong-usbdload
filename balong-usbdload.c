@@ -191,6 +191,21 @@ for(off=(size-8);off>0;off--) {
 return 0;
 }
 
+//*********************************************
+//* Поиск таблицы разделов в загрузчике 
+//*********************************************
+uint32_t find_ptable(char* buf, uint32_t size) {
+
+// сигнатура заголовка таблицы  
+const uint8_t headmagic[16]={0x70, 0x54, 0x61, 0x62, 0x6c, 0x65, 0x48, 0x65, 0x61, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80};  
+uint32_t off;
+
+for(off=0;off<(size-16);off+=4) {
+  if (memcmp(buf+off,headmagic,16) == 0)   return off;
+}
+return 0;
+}
+
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
@@ -200,8 +215,13 @@ unsigned int i,res,opt,datasize,pktcount,adr;
 int nblk;   // число блоков для загрузки
 int bl;    // текущий блок
 unsigned char c;
-int fbflag=0;
+int fbflag=0, tflag=0;
 int koff;  // смещение до ANDROID-заголовка
+char ptfile[100];
+
+FILE* pt;
+char ptbuf[2048];
+uint32_t ptoff;
 
 unsigned char cmdhead[14]={0xfe,0, 0xff};
 unsigned char cmddata[1040]={0xda,0,0};
@@ -222,7 +242,7 @@ unsigned char devname[50]="/dev/ttyUSB0";
 char devname[50]="";
 #endif
 
-while ((opt = getopt(argc, argv, "hp:f")) != -1) {
+while ((opt = getopt(argc, argv, "hp:ft:")) != -1) {
   switch (opt) {
    case 'h': 
      
@@ -231,6 +251,7 @@ printf("\n Утилита предназначена для аварийной U
  Допустимы следующие ключи:\n\n\
 -p <tty> - последовательный порт для общения с загрузчиком (по умолчанию /dev/ttyUSB0\n\
 -f       - грузить usbloader только до fastboot (без запуска линукса)\n\
+-t <file>- взять таблицу разделов из указанного файла\n\
 \n",argv[0]);
     return;
 
@@ -241,6 +262,10 @@ printf("\n Утилита предназначена для аварийной U
    case 'f':
      fbflag=1;
      break;
+
+   case 't':
+     tflag=1;
+     strcpy(ptfile,optarg);
      
    case '?':
    case ':':  
@@ -327,6 +352,7 @@ for(bl=0;bl<nblk;bl++) {
       return;
   }
 
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
   // fastboot-патч
   if ((bl == 1) && fbflag) {
     koff=locate_kernel(pbuf,blk[bl].size);
@@ -336,7 +362,27 @@ for(bl=0;bl<nblk;bl++) {
     }
     else printf("\n В загрузчике нет ANDROID-компонента - fastboot-загрузка невозможна\n");
   }  
+
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+  // патч таблицы разделов
+  if ((bl ==1) && tflag) {
+    pt=fopen(ptfile,"r");
+    if (pt == 0) {
+      printf("\n Не найден файл %s - таблица разделов не изменена",ptfile);
+      goto np;
+    }  
+    fread(ptbuf,1,2048,pt);
+    fclose(pt);
+    ptoff=find_ptable(pbuf,blk[bl].size);
+    if (ptoff == 0) {
+      printf("\n В загрузчике не найдена таблица разделов - замена невозможна");
+    }
+    else memcpy(pbuf+ptoff,ptbuf,2048);
+  }
   
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+np:
+
   printf("\n Загрузка блока %i, адрес=%08x, размер=%i\n",bl,blk[bl].adr,blk[bl].size);
   // фрмируем пакет начала блока  
   *((unsigned int*)&cmdhead[4])=htonl(blk[bl].size);
