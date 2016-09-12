@@ -4,16 +4,18 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-//#include <termios.h>
-//#include <unistd.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
 #ifndef WIN32
+//%%%%
 #include <termios.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #else
+//%%%%
 #include <windows.h>
 #include "wingetopt.h"
 #include "printf.h"
@@ -109,28 +111,97 @@ if (replybuf[0] == 0xaa) return 1;
 return 0;
 }
 
+//*************************************
+// Открытие и настройка последовательного порта
+//*************************************
 
+int open_port(char* devname) {
 
+//============= Linux ========================  
+#ifndef WIN32
 
+int i,dflag=1;
+char devstr[200]={0};
+
+// Вместо полного имени устройства разрешается передавать только номер ttyUSB-порта
+
+// Проверяем имя устройства на наличие нецифровых символов
+for(i=0;i<strlen(devname);i++) {
+  if ((devname[i]<'0') || (devname[i]>'9')) dflag=0;
+}
+// Если в строке - только цифры, добавляем префикс /dev/ttyUSB
+if (dflag) strcpy(devstr,"/dev/ttyUSB");
+// копируем имя устройства
+strcat(devstr,devname);
+
+siofd = open(devstr, O_RDWR | O_NOCTTY |O_SYNC);
+if (siofd == -1) return 0;
+
+bzero(&sioparm, sizeof(sioparm)); // готовим блок атрибутов termios
+sioparm.c_cflag = B115200 | CS8 | CLOCAL | CREAD ;
+sioparm.c_iflag = 0;  // INPCK;
+sioparm.c_oflag = 0;
+sioparm.c_lflag = 0;
+sioparm.c_cc[VTIME]=30; // timeout  
+sioparm.c_cc[VMIN]=0;  
+tcsetattr(siofd, TCSANOW, &sioparm);
+return 1;
+
+//============= Win32 ========================  
+#else
+    char device[20] = "\\\\.\\COM";
+    DCB dcbSerialParams = {0};
+
+    strcat(device, devname);
+    
+    hSerial = CreateFileA(device, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    if (hSerial == INVALID_HANDLE_VALUE)
+        return 0;
+
+    dcbSerialParams.DCBlength=sizeof(dcbSerialParams);
+    if (!GetCommState(hSerial, &dcbSerialParams))
+    {
+        CloseHandle(hSerial);
+        return 0;
+    }
+    dcbSerialParams.BaudRate=CBR_115200;
+    dcbSerialParams.ByteSize=8;
+    dcbSerialParams.StopBits=ONESTOPBIT;
+    dcbSerialParams.Parity=NOPARITY;
+    if(!SetCommState(hSerial, &dcbSerialParams))
+    {
+        CloseHandle(hSerial);
+        return 0;
+    }
+
+    return 1;
+#endif
+}
+
+//*************************************
+//* Поиск linux-ядра в образе раздела
+//*************************************
+int locate_kernel(char* pbuf, uint32_t size) {
+  
+int off;
+
+for(off=(size-8);off>0;off--) {
+  if (strncmp(pbuf+off,"ANDROID!",8) == 0) return off;
+}
+return 0;
+}
 
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 void main(int argc, char* argv[]) {
 
-#ifndef WIN32
-struct termios sioparm;
-#else
-    char device[20] = "\\\\.\\COM";
-    DCB dcbSerialParams = {0};
-    COMMTIMEOUTS CommTimeouts;
-    DWORD bytes_written, bytes_read;
-#endif
-//char* lptr;
 unsigned int i,res,opt,datasize,pktcount,adr;
 int nblk;   // число блоков для загрузки
 int bl;    // текущий блок
 unsigned char c;
+int fbflag=0;
+int koff;  // смещение до ANDROID-заголовка
 
 unsigned char cmdhead[14]={0xfe,0, 0xff};
 unsigned char cmddata[1040]={0xda,0,0};
@@ -143,13 +214,15 @@ struct {
   int offset; // смещение до блока от начала файла
 } blk[10];
 
+char* pbuf; // буфер для загрузки образа раздела
+
 #ifndef WIN32
 unsigned char devname[50]="/dev/ttyUSB0";
 #else
 char devname[50]="";
 #endif
 
-while ((opt = getopt(argc, argv, "hp:sa:")) != -1) {
+while ((opt = getopt(argc, argv, "hp:f")) != -1) {
   switch (opt) {
    case 'h': 
      
@@ -157,13 +230,22 @@ printf("\n Утилита предназначена для аварийной U
 %s [ключи] <имя файла для загрузки>\n\n\
  Допустимы следующие ключи:\n\n\
 -p <tty> - последовательный порт для общения с загрузчиком (по умолчанию /dev/ttyUSB0\n\
+-f       - грузить usbloader только до fastboot (без запуска линукса)\n\
 \n",argv[0]);
     return;
 
    case 'p':
     strcpy(devname,optarg);
     break;
-        
+
+   case 'f':
+     fbflag=1;
+     break;
+     
+   case '?':
+   case ':':  
+     return;
+    
   }
 }  
 
@@ -180,62 +262,10 @@ if (*devname == '\0')
 }
 #endif
 
-#ifndef WIN32
-// Настройка SIO
-siofd = open(devname, O_RDWR | O_NOCTTY |O_SYNC);
-if (siofd == -1) {
-    printf("\n - Последовательный порт %s не открывается\n", argv[1]);
-    return;
- }
-
-bzero(&sioparm, sizeof(sioparm));
-sioparm.c_cflag = B115200 | CS8 | CLOCAL | CREAD;
-sioparm.c_iflag = 0;  // INPCK;
-sioparm.c_oflag = 0;
-sioparm.c_lflag = 0;
-sioparm.c_cc[VTIME]=1;  // таймаут 
-sioparm.c_cc[VMIN]=1;   // 1 байт минимального ответа
-
-tcsetattr(siofd, TCSANOW, &sioparm);
-tcflush(siofd,TCIOFLUSH);  // очистка выходного буфера
-#else
-    strcat(device, /*(char*)*/devname);
-    
-    hSerial = CreateFileA(device, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-    if (hSerial == INVALID_HANDLE_VALUE)
-    {
-        printf("\n - Последовательный порт COM%s не открывается\n", devname); 
-        return;
-    }
-
-    ZeroMemory(&dcbSerialParams, sizeof(dcbSerialParams));
-    dcbSerialParams.DCBlength=sizeof(dcbSerialParams);
-    dcbSerialParams.BaudRate = CBR_115200;
-    dcbSerialParams.ByteSize = 8;
-    dcbSerialParams.StopBits = ONESTOPBIT;
-    dcbSerialParams.Parity = NOPARITY;
-    dcbSerialParams.fBinary = TRUE;
-    dcbSerialParams.fDtrControl = DTR_CONTROL_ENABLE;
-    dcbSerialParams.fRtsControl = RTS_CONTROL_ENABLE;
-    if (!SetCommState(hSerial, &dcbSerialParams))
-    {
-        printf("\n - Ошибка при инициализации COM-порта\n", devname); 
-        CloseHandle(hSerial);
-        return;
-    }
-
-    CommTimeouts.ReadIntervalTimeout = MAXDWORD;
-    CommTimeouts.ReadTotalTimeoutConstant = 0;
-    CommTimeouts.ReadTotalTimeoutMultiplier = 0;
-    CommTimeouts.WriteTotalTimeoutConstant = 0;
-    CommTimeouts.WriteTotalTimeoutMultiplier = 0;
-    if (!SetCommTimeouts(hSerial, &CommTimeouts))
-    {
-        printf("\n - Ошибка при инициализации COM-порта\n", devname); 
-        CloseHandle(hSerial);
-        return;
-    }
-#endif
+if (!open_port(devname)) {
+  printf("\n Последовательный порт не открывается\n");
+  return;
+}  
 
 ldr=fopen(argv[optind],"rb");
 if (ldr == 0) {
@@ -282,9 +312,32 @@ if (c != 0x55) {
 // главный цикл загрузки - загружаем все блоки, найденные в заголовке
 
 for(bl=0;bl<nblk;bl++) {
+
+  datasize=1024;
+  pktcount=1;
+
+  // выделяем память под полный образ раздела
+  pbuf=malloc(blk[bl].size);
+
+  // читаем образ раздела в память
+  fseek(ldr,blk[bl].offset,SEEK_SET);
+  res=fread(pbuf,1,blk[bl].size,ldr);
+  if (res != blk[bl].size) {
+      printf("\n Неожиданный конец файла: прочитано %i ожидалось %i\n",res,blk[bl].size);
+      return;
+  }
+
+  // fastboot-патч
+  if ((bl == 1) && fbflag) {
+    koff=locate_kernel(pbuf,blk[bl].size);
+    if (koff != 0) {
+      pbuf[koff]=0x55; // патч сигнатуры
+      blk[bl].size=koff+8; // обрезаем раздел до начала ядра
+    }
+    else printf("\n В загрузчике нет ANDROID-компонента - fastboot-загрузка невозможна\n");
+  }  
   
   printf("\n Загрузка блока %i, адрес=%08x, размер=%i\n",bl,blk[bl].adr,blk[bl].size);
-  fseek(ldr,blk[bl].offset,SEEK_SET);
   // фрмируем пакет начала блока  
   *((unsigned int*)&cmdhead[4])=htonl(blk[bl].size);
   *((unsigned int*)&cmdhead[8])=htonl(blk[bl].adr);
@@ -298,10 +351,8 @@ for(bl=0;bl<nblk;bl++) {
     return;
   }  
 
-  // Цикл поблочной загрузки данных
-  datasize=1024;
-  pktcount=1;
-
+  
+  // ---------- Цикл поблочной загрузки данных ---------------------
   for(adr=0;adr<blk[bl].size;adr+=1024) {
     if ((adr+1024)>=blk[bl].size) datasize=blk[bl].size-adr;  
 #ifndef WIN32
@@ -310,15 +361,12 @@ for(bl=0;bl<nblk;bl++) {
     printf("\r Адрес: %08x, пакет# %i  размер: %i",blk[bl].adr+adr,pktcount,datasize);
 #endif
 
-    // читаем порцию данных
-    if (datasize != fread(cmddata+3,1,datasize,ldr)) {
-      printf("\n Неожиданный конец файла\n");
-      return;
-    }
   
     // готовим пакет данных
     cmddata[1]=pktcount;
     cmddata[2]=(~pktcount)&0xff;
+    memcpy(cmddata+3,pbuf+adr,datasize);
+    
     pktcount++;
     if (!sendcmd(cmddata,datasize+5)) {
       printf("\nМодем отверг пакет данных\nОбраз пакета:");
@@ -326,6 +374,7 @@ for(bl=0;bl<nblk;bl++) {
       return;
     }  
   }
+  free(pbuf);
 
   // Фрмируем пакет конца данных
   cmdeod[1]=pktcount;
