@@ -151,6 +151,7 @@ return 1;
 #else
     char device[20] = "\\\\.\\COM";
     DCB dcbSerialParams = {0};
+    COMMTIMEOUTS CommTimeouts;
 
     strcat(device, devname);
     
@@ -158,17 +159,27 @@ return 1;
     if (hSerial == INVALID_HANDLE_VALUE)
         return 0;
 
+    ZeroMemory(&dcbSerialParams, sizeof(dcbSerialParams));
     dcbSerialParams.DCBlength=sizeof(dcbSerialParams);
-    if (!GetCommState(hSerial, &dcbSerialParams))
-    {
-        CloseHandle(hSerial);
-        return 0;
-    }
     dcbSerialParams.BaudRate=CBR_115200;
     dcbSerialParams.ByteSize=8;
     dcbSerialParams.StopBits=ONESTOPBIT;
     dcbSerialParams.Parity=NOPARITY;
+    dcbSerialParams.fBinary = TRUE;
+    dcbSerialParams.fDtrControl = DTR_CONTROL_ENABLE;
+    dcbSerialParams.fRtsControl = RTS_CONTROL_ENABLE;
     if(!SetCommState(hSerial, &dcbSerialParams))
+    {
+        CloseHandle(hSerial);
+        return 0;
+    }
+
+    CommTimeouts.ReadIntervalTimeout = MAXDWORD;
+    CommTimeouts.ReadTotalTimeoutConstant = 0;
+    CommTimeouts.ReadTotalTimeoutMultiplier = 0;
+    CommTimeouts.WriteTotalTimeoutConstant = 0;
+    CommTimeouts.WriteTotalTimeoutMultiplier = 0;
+    if (!SetCommTimeouts(hSerial, &CommTimeouts))
     {
         CloseHandle(hSerial);
         return 0;
@@ -240,6 +251,7 @@ char* pbuf; // буфер для загрузки образа раздела
 unsigned char devname[50]="/dev/ttyUSB0";
 #else
 char devname[50]="";
+DWORD bytes_written, bytes_read;
 #endif
 
 while ((opt = getopt(argc, argv, "hp:ft:")) != -1) {
@@ -342,7 +354,7 @@ for(bl=0;bl<nblk;bl++) {
   pktcount=1;
 
   // выделяем память под полный образ раздела
-  pbuf=malloc(blk[bl].size);
+  pbuf=(char*)malloc(blk[bl].size);
 
   // читаем образ раздела в память
   fseek(ldr,blk[bl].offset,SEEK_SET);
