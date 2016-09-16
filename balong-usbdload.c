@@ -278,6 +278,7 @@ printf("\n Утилита предназначена для аварийной U
    case 't':
      tflag=1;
      strcpy(ptfile,optarg);
+     break;
      
    case '?':
    case ':':  
