@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="balong-usbdload.c">
+    <ClCompile Include="..\..\balong-usbdload.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="wingetopt.c">
