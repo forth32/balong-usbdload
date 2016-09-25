@@ -15,10 +15,10 @@ clean:
 #.c.o:
 #	$(CC) -o $@ $(LIBS) $^ qcio.o
 
-balong-usbdload: balong-usbdload.o
+balong-usbdload: balong-usbdload.o parts.o
 	@gcc $^ -o $@ $(LIBS)
 
-ptable-injector: ptable-injector.o
+ptable-injector: ptable-injector.o parts.o
 	@gcc $^ -o $@ $(LIBS)
 	
 loader-patch: loader-patch.o

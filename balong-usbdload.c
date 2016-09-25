@@ -21,6 +21,8 @@
 #include "printf.h"
 #endif
 
+#include "parts.h"
+
 
 #ifndef WIN32
 int siofd;
@@ -202,20 +204,6 @@ for(off=(size-8);off>0;off--) {
 return 0;
 }
 
-//*********************************************
-//* Поиск таблицы разделов в загрузчике 
-//*********************************************
-uint32_t find_ptable(char* buf, uint32_t size) {
-
-// сигнатура заголовка таблицы  
-const uint8_t headmagic[16]={0x70, 0x54, 0x61, 0x62, 0x6c, 0x65, 0x48, 0x65, 0x61, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80};  
-uint32_t off;
-
-for(off=0;off<(size-16);off+=4) {
-  if (memcmp(buf+off,headmagic,16) == 0)   return off;
-}
-return 0;
-}
 
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -223,10 +211,9 @@ return 0;
 void main(int argc, char* argv[]) {
 
 unsigned int i,res,opt,datasize,pktcount,adr;
-int nblk;   // число блоков для загрузки
 int bl;    // текущий блок
 unsigned char c;
-int fbflag=0, tflag=0;
+int fbflag=0, tflag=0, mflag=0;
 int koff;  // смещение до ANDROID-заголовка
 char ptfile[100];
 
@@ -234,18 +221,23 @@ FILE* pt;
 char ptbuf[2048];
 uint32_t ptoff;
 
+struct ptable_t* ptable;
+
 unsigned char cmdhead[14]={0xfe,0, 0xff};
 unsigned char cmddata[1040]={0xda,0,0};
 unsigned char cmdeod[5]={0xed,0,0,0,0};
 
+// список разделов, которым нужно установить файловый флаг
+uint8_t fileflag[41];
+
 struct {
   int lmode;  // режим загрузки: 1 - прямой старт, 2 - через перезапуск A-core
-  int size;   // размер блока
-  int adr;    // адрес загрузки блока в память
-  int offset; // смещение до блока от начала файла
+  int size;   // размер компонента
+  int adr;    // адрес загрузки компонента в память
+  int offset; // смещение до компонента от начала файла
+  char* pbuf; // буфер для загрузки образа компонента
 } blk[10];
 
-char* pbuf; // буфер для загрузки образа раздела
 
 #ifndef WIN32
 unsigned char devname[50]="/dev/ttyUSB0";
@@ -254,11 +246,13 @@ char devname[50]="";
 DWORD bytes_written, bytes_read;
 #endif
 
-while ((opt = getopt(argc, argv, "hp:ft:")) != -1) {
+bzero(fileflag,sizeof(fileflag));
+
+while ((opt = getopt(argc, argv, "hp:ft:ms:")) != -1) {
   switch (opt) {
    case 'h': 
      
-printf("\n Утилита предназначена для аварийной USB-загрузки модемов E3372S\n\n\
+printf("\n Утилита предназначена для аварийной USB-загрузки устройств на чипете Balong V7\n\n\
 %s [ключи] <имя файла для загрузки>\n\n\
  Допустимы следующие ключи:\n\n\
 -p <tty> - последовательный порт для общения с загрузчиком (по умолчанию /dev/ttyUSB0\n\
@@ -277,9 +271,22 @@ printf("\n Утилита предназначена для аварийной U
      fbflag=1;
      break;
 
+   case 'm':
+     mflag=1;
+     break;
+
    case 't':
      tflag=1;
      strcpy(ptfile,optarg);
+     break;
+
+   case 's':
+     i=atoi(optarg);
+     if (i>41) {
+       printf("\n Раздела #%i не существует\n",i);
+       return;
+     }
+     fileflag[i]=1;
      break;
      
    case '?':
@@ -289,22 +296,15 @@ printf("\n Утилита предназначена для аварийной U
   }
 }  
 
+printf("\n Аварийный USB-загрузчик Balong-чипсета, версия 2.01, (c) forth32, 2015");
+#ifdef WIN32
+printf("\n Порт для Windows 32bit  (c) rust3028, 2016");
+#endif
+
+
 if (optind>=argc) {
     printf("\n - Не указано имя файла для загрузки\n");
     return;
-}  
-
-#ifdef WIN32
-if (*devname == '\0')
-{
-   printf("\n - Последовательный порт не задан\n"); 
-   return; 
-}
-#endif
-
-if (!open_port(devname)) {
-  printf("\n Последовательный порт не открывается\n");
-  return;
 }  
 
 ldr=fopen(argv[optind],"rb");
@@ -324,14 +324,98 @@ fseek(ldr,36,SEEK_SET); // начало описателей блоков для
 
 // Разбираем заголовок
 
-for(nblk=0;nblk<10;nblk++) {
- fread(&blk[nblk].lmode,1,4,ldr);
- fread(&blk[nblk].size,1,4,ldr);
- fread(&blk[nblk].adr,1,4,ldr);
- fread(&blk[nblk].offset,1,4,ldr);
- if (blk[nblk].lmode == 0) break;
-} 
-printf("\n Найдено %i блоков для загрузки",nblk);
+fread(&blk[0],1,16,ldr);  // raminit
+fread(&blk[1],1,16,ldr);  // usbldr
+
+//---------------------------------------------------------------------
+// Чтение компонентов в память
+for(bl=0;bl<2;bl++) {
+
+  // выделяем память под полный образ раздела
+  blk[bl].pbuf=(char*)malloc(blk[bl].size);
+
+  // читаем образ раздела в память
+  fseek(ldr,blk[bl].offset,SEEK_SET);
+  res=fread(blk[bl].pbuf,1,blk[bl].size,ldr);
+  if (res != blk[bl].size) {
+      printf("\n Неожиданный конец файла: прочитано %i ожидалось %i\n",res,blk[bl].size);
+      return;
+  }
+  if (bl == 0) continue; // для raminit более ничего делать не надо
+
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+  // fastboot-патч
+  if (fbflag) {
+    koff=locate_kernel(blk[bl].pbuf,blk[bl].size);
+    if (koff != 0) {
+      blk[bl].pbuf[koff]=0x55; // патч сигнатуры
+      blk[bl].size=koff+8; // обрезаем раздел до начала ядра
+    }
+    else printf("\n В загрузчике нет ANDROID-компонента - fastboot-загрузка невозможна\n");
+  }  
+
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+  // Ищем таблицу разделов в загрузчике
+  ptoff=find_ptable_ram(blk[bl].pbuf,blk[bl].size);
+  
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+  // патч таблицы разделов
+  if (tflag) {
+    pt=fopen(ptfile,"r");
+    if (pt == 0) { 
+      printf("\n Не найден файл %s - замена таблицы разделов невозможна\n",ptfile);
+      return;
+    }  
+    fread(ptbuf,1,2048,pt);
+    fclose(pt);
+    if (memcmp(headmagic,ptbuf,sizeof(headmagic)) != 0) {
+      printf("\n Файл %s не явлется таблицей разделов\n",ptfile);
+      return;
+    }  
+    if (ptoff == 0) {
+          printf("\n В загрузчике не найдена таблица разделов - замена невозможна");
+	  return;
+    }
+    memcpy(blk[bl].pbuf+ptoff,ptbuf,2048);
+  }
+  ptable=(struct ptable_t*)(blk[bl].pbuf+ptoff);
+  
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+  // Патч файловых флагов
+  for(i=0;i<41;i++) {
+    if (fileflag[i]) {
+      ptable->part[i].nproperty |= 1;
+    }  
+  }  
+
+  //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+  // Вывод таблицы разделов
+  if (mflag) {
+    if (ptoff == 0) {
+      printf("\n Таблица разделов не найдена - вывод карты невозможен\n");
+      return;
+    }
+    show_map(*ptable);
+    return;
+  }
+  
+}
+
+//---------------------------------------------------------------------
+
+#ifdef WIN32
+if (*devname == '\0')
+{
+   printf("\n - Последовательный порт не задан\n"); 
+   return; 
+}
+#endif
+
+if (!open_port(devname)) {
+  printf("\n Последовательный порт не открывается\n");
+  return;
+}  
+
 
 // Проверяем загрузочный порт
 c=0;
@@ -349,56 +433,18 @@ if (c != 0x55) {
   return;
 }  
 
+//----------------------------------
 // главный цикл загрузки - загружаем все блоки, найденные в заголовке
+//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 
-for(bl=0;bl<nblk;bl++) {
+printf("\n\n Компонент    Адрес    Размер   %%загрузки\n------------------------------------------\n");
+
+for(bl=0;bl<2;bl++) {
 
   datasize=1024;
   pktcount=1;
 
-  // выделяем память под полный образ раздела
-  pbuf=(char*)malloc(blk[bl].size);
 
-  // читаем образ раздела в память
-  fseek(ldr,blk[bl].offset,SEEK_SET);
-  res=fread(pbuf,1,blk[bl].size,ldr);
-  if (res != blk[bl].size) {
-      printf("\n Неожиданный конец файла: прочитано %i ожидалось %i\n",res,blk[bl].size);
-      return;
-  }
-
-//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
-  // fastboot-патч
-  if ((bl == 1) && fbflag) {
-    koff=locate_kernel(pbuf,blk[bl].size);
-    if (koff != 0) {
-      pbuf[koff]=0x55; // патч сигнатуры
-      blk[bl].size=koff+8; // обрезаем раздел до начала ядра
-    }
-    else printf("\n В загрузчике нет ANDROID-компонента - fastboot-загрузка невозможна\n");
-  }  
-
-//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
-  // патч таблицы разделов
-  if ((bl ==1) && tflag) {
-    pt=fopen(ptfile,"r");
-    if (pt == 0) {
-      printf("\n Не найден файл %s - таблица разделов не изменена",ptfile);
-      goto np;
-    }  
-    fread(ptbuf,1,2048,pt);
-    fclose(pt);
-    ptoff=find_ptable(pbuf,blk[bl].size);
-    if (ptoff == 0) {
-      printf("\n В загрузчике не найдена таблица разделов - замена невозможна");
-    }
-    else memcpy(pbuf+ptoff,ptbuf,2048);
-  }
-  
-//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
-np:
-
-  printf("\n Загрузка блока %i, адрес=%08x, размер=%i\n",bl,blk[bl].adr,blk[bl].size);
   // фрмируем пакет начала блока  
   *((unsigned int*)&cmdhead[4])=htonl(blk[bl].size);
   *((unsigned int*)&cmdhead[8])=htonl(blk[bl].adr);
@@ -407,44 +453,40 @@ np:
   // отправляем пакет начала блока
   res=sendcmd(cmdhead,14);
   if (!res) {
-    printf("\nМодем отверг пакет заголовка\nОбраз пакета:");
-    dump(cmdhead,14);
+    printf("\nМодем отверг пакет заголовка\n");
     return;
   }  
 
   
   // ---------- Цикл поблочной загрузки данных ---------------------
   for(adr=0;adr<blk[bl].size;adr+=1024) {
-    if ((adr+1024)>=blk[bl].size) datasize=blk[bl].size-adr;  
-#ifndef WIN32
-    fprintf(stderr,"\r Адрес: %08x, пакет# %i  размер: %i",blk[bl].adr+adr,pktcount,datasize);
-#else
-    printf("\r Адрес: %08x, пакет# %i  размер: %i",blk[bl].adr+adr,pktcount,datasize);
-#endif
 
+    // формируем размер последнего загружаемого пакета
+    if ((adr+1024)>=blk[bl].size) datasize=blk[bl].size-adr;  
+
+    printf("\r %s    %08x %8i   %i%%",bl?"usbboot":"raminit",blk[bl].adr,blk[bl].size,(adr+datasize)*100/blk[bl].size); 
   
     // готовим пакет данных
     cmddata[1]=pktcount;
     cmddata[2]=(~pktcount)&0xff;
-    memcpy(cmddata+3,pbuf+adr,datasize);
+    memcpy(cmddata+3,blk[bl].pbuf+adr,datasize);
     
     pktcount++;
     if (!sendcmd(cmddata,datasize+5)) {
-      printf("\nМодем отверг пакет данных\nОбраз пакета:");
-      dump(cmddata,datasize+5);
+      printf("\nМодем отверг пакет данных");
       return;
     }  
   }
-  free(pbuf);
+  free(blk[bl].pbuf);
 
   // Фрмируем пакет конца данных
   cmdeod[1]=pktcount;
   cmdeod[2]=(~pktcount)&0xff;
 
   if (!sendcmd(cmdeod,5)) {
-    printf("\nМодем отверг пакет конца данных\nОбраз пакета:");
-    dump(cmdeod,5);
-  }  
+    printf("\nМодем отверг пакет конца данных");
+  }
+printf("\n");  
 } 
 printf("\n Загрузка окончена\n");  
 }
