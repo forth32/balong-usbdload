@@ -22,6 +22,7 @@
 #endif
 
 #include "parts.h"
+#include "patcher.h"
 
 
 #ifndef WIN32
@@ -213,7 +214,7 @@ void main(int argc, char* argv[]) {
 unsigned int i,res,opt,datasize,pktcount,adr;
 int bl;    // текущий блок
 unsigned char c;
-int fbflag=0, tflag=0, mflag=0;
+int fbflag=0, tflag=0, mflag=0, bflag=0;
 int koff;  // смещение до ANDROID-заголовка
 char ptfile[100];
 
@@ -248,7 +249,7 @@ DWORD bytes_written, bytes_read;
 
 bzero(fileflag,sizeof(fileflag));
 
-while ((opt = getopt(argc, argv, "hp:ft:ms:")) != -1) {
+while ((opt = getopt(argc, argv, "hp:ft:ms:b")) != -1) {
   switch (opt) {
    case 'h': 
      
@@ -257,6 +258,7 @@ printf("\n Утилита предназначена для аварийной U
  Допустимы следующие ключи:\n\n\
 -p <tty> - последовательный порт для общения с загрузчиком (по умолчанию /dev/ttyUSB0\n\
 -f       - грузить usbloader только до fastboot (без запуска линукса)\n\
+-b       - аналогично -f, дополнительно отключить проверку дефектных блоков при стирании\n\
 -t <file>- взять таблицу разделов из указанного файла\n\
 -m       - показать таблицу разделов загрузчика и завершить работу\n\
 -s n     - установить файловый флаг для раздела n (ключ можно указать несколько раз)\n\
@@ -269,6 +271,11 @@ printf("\n Утилита предназначена для аварийной U
 
    case 'f':
      fbflag=1;
+     break;
+
+   case 'b':
+     fbflag=1;
+     bflag=1;
      break;
 
    case 'm':
@@ -397,6 +404,15 @@ for(bl=0;bl<2;bl++) {
     }
     show_map(*ptable);
     return;
+  }
+
+  // Патч erase-процедуры
+  if (bflag) {
+    res=perasebad(blk[bl].pbuf, blk[bl].size);
+    if (res == 0) { 
+      printf("\n! Не найдена сигнатура isbad - загрузка невозможна\n");  
+      return;
+    }  
   }
   
 }
