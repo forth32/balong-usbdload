@@ -1,8 +1,14 @@
 #include <stdio.h>
 #include <stdint.h>
+#ifndef WIN32
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#else
+#include <windows.h>
+#include "printf.h"
+#endif
+
 #include "parts.h"
 
 // сигнатура заголовка таблицы  

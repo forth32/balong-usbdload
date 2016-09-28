@@ -18,7 +18,13 @@
     <ClCompile Include="..\..\balong-usbdload.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="wingetopt.c">
+    <ClCompile Include="getopt.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\parts.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\patcher.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -26,7 +32,13 @@
     <ClInclude Include="printf.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="wingetopt.h">
+    <ClInclude Include="getopt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\parts.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\patcher.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

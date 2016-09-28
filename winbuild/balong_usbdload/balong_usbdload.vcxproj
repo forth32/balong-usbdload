@@ -83,11 +83,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\balong-usbdload.c" />
-    <ClCompile Include="wingetopt.c" />
+    <ClCompile Include="..\..\parts.c" />
+    <ClCompile Include="..\..\patcher.c" />
+    <ClCompile Include="getopt.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\parts.h" />
+    <ClInclude Include="..\..\patcher.h" />
     <ClInclude Include="printf.h" />
-    <ClInclude Include="wingetopt.h" />
+    <ClInclude Include="getopt.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

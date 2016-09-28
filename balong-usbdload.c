@@ -17,7 +17,7 @@
 #else
 //%%%%
 #include <windows.h>
-#include "wingetopt.h"
+#include "getopt.h"
 #include "printf.h"
 #endif
 
@@ -247,7 +247,11 @@ char devname[50]="";
 DWORD bytes_written, bytes_read;
 #endif
 
+#ifndef WIN32
 bzero(fileflag,sizeof(fileflag));
+#else
+memset(fileflag, 0, sizeof(fileflag));
+#endif
 
 while ((opt = getopt(argc, argv, "hp:ft:ms:b")) != -1) {
   switch (opt) {
@@ -255,9 +259,13 @@ while ((opt = getopt(argc, argv, "hp:ft:ms:b")) != -1) {
      
 printf("\n Утилита предназначена для аварийной USB-загрузки устройств на чипете Balong V7\n\n\
 %s [ключи] <имя файла для загрузки>\n\n\
- Допустимы следующие ключи:\n\n\
--p <tty> - последовательный порт для общения с загрузчиком (по умолчанию /dev/ttyUSB0\n\
--f       - грузить usbloader только до fastboot (без запуска линукса)\n\
+ Допустимы следующие ключи:\n\n"
+#ifndef WIN32
+"-p <tty> - последовательный порт для общения с загрузчиком (по умолчанию /dev/ttyUSB0)\n"
+#else
+"-p <tty> - последовательный порт для общения с загрузчиком\n"
+#endif
+"-f       - грузить usbloader только до fastboot (без запуска линукса)\n\
 -b       - аналогично -f, дополнительно отключить проверку дефектных блоков при стирании\n\
 -t <file>- взять таблицу разделов из указанного файла\n\
 -m       - показать таблицу разделов загрузчика и завершить работу\n\
@@ -368,7 +376,7 @@ for(bl=0;bl<2;bl++) {
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
   // патч таблицы разделов
   if (tflag) {
-    pt=fopen(ptfile,"r");
+    pt=fopen(ptfile,"rb");
     if (pt == 0) { 
       printf("\n Не найден файл %s - замена таблицы разделов невозможна\n",ptfile);
       return;
