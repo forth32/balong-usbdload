@@ -214,7 +214,7 @@ void main(int argc, char* argv[]) {
 unsigned int i,res,opt,datasize,pktcount,adr;
 int bl;    // текущий блок
 unsigned char c;
-int fbflag=0, tflag=0, mflag=0, bflag=0;
+int fbflag=0, tflag=0, mflag=0, bflag=0, cflag=0;
 int koff;  // смещение до ANDROID-заголовка
 char ptfile[100];
 
@@ -253,7 +253,7 @@ bzero(fileflag,sizeof(fileflag));
 memset(fileflag, 0, sizeof(fileflag));
 #endif
 
-while ((opt = getopt(argc, argv, "hp:ft:ms:b")) != -1) {
+while ((opt = getopt(argc, argv, "hp:ft:ms:bc")) != -1) {
   switch (opt) {
    case 'h': 
      
@@ -270,6 +270,7 @@ printf("\n Утилита предназначена для аварийной U
 -t <file>- взять таблицу разделов из указанного файла\n\
 -m       - показать таблицу разделов загрузчика и завершить работу\n\
 -s n     - установить файловый флаг для раздела n (ключ можно указать несколько раз)\n\
+-c       - не производить автоматический патч стирания разделов\n\
 \n",argv[0]);
     return;
 
@@ -279,6 +280,10 @@ printf("\n Утилита предназначена для аварийной U
 
    case 'f':
      fbflag=1;
+     break;
+
+   case 'c':
+     cflag=1;
      break;
 
    case 'b':
@@ -414,7 +419,7 @@ for(bl=0;bl<2;bl++) {
     return;
   }
 
-  // Патч erase-процедуры
+  // Патч erase-процедуры на предмет игнорировани бедблоков
   if (bflag) {
     res=perasebad(blk[bl].pbuf, blk[bl].size);
     if (res == 0) { 
@@ -422,6 +427,12 @@ for(bl=0;bl<2;bl++) {
       return;
     }  
   }
+  // Удаление процедуры flash_eraseall
+  if (!cflag) {
+    res=pv7r2(blk[bl].pbuf, blk[bl].size)+pv7r11(blk[bl].pbuf, blk[bl].size);
+   if (res != 0)  printf("\n* Удалена процедура flash_eraseal по смещению %08x",res);
+  }   
+     
   
 }
 
