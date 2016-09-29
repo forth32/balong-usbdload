@@ -430,7 +430,7 @@ for(bl=0;bl<2;bl++) {
   // Удаление процедуры flash_eraseall
   if (!cflag) {
     res=pv7r2(blk[bl].pbuf, blk[bl].size)+pv7r11(blk[bl].pbuf, blk[bl].size);
-   if (res != 0)  printf("\n* Удалена процедура flash_eraseal по смещению %08x",res);
+   if (res != 0)  printf("\n\n * Удалена процедура flash_eraseal по смещению %08x",res);
   }   
      
   
