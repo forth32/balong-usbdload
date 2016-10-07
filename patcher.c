@@ -38,12 +38,16 @@ const char sigburn_v7r2[]={
    0xE1, 0x2F, 0x44, 0xE3, 0x07, 0x30, 0x02, 0xE5, 0x9A, 0x3F, 0x07, 0xEE, 
    0x00, 0x40, 0xA0, 0xE3, 0xE0, 0x4F, 0x44, 0xE3, 0x4E, 0x36, 0x04, 0xE3, 
    0x4C, 0x34, 0x44, 0xE3, 0x30, 0x33, 0x84, 0xE5};
- 
+
+const char sigburn_v7r1[]={   
+   0x3D, 0xE2, 0xE0, 0xE3, 0x00, 0xE0, 0x9E, 0xE5, 0x5C, 0xC3, 0x9F, 0xE5, 
+   0x0C, 0x00, 0x5E, 0xE1, 0x00, 0x00, 0x00, 0x0A};
    
 const char sigbad[]={0x04, 0x10, 0x8D, 0xE2, 0x04, 0x00, 0xA0, 0xE1};
 
 struct defpatch patch_v7r11={sigburn_v7r11, sizeof(sigburn_v7r11), 4};   
 struct defpatch patch_v7r2={sigburn_v7r2, sizeof(sigburn_v7r2), 16};   
+struct defpatch patch_v7r1={sigburn_v7r1, sizeof(sigburn_v7r1), 0};   
 struct defpatch patch_erasebad={sigbad, sizeof(sigbad), 0};   
    
 
@@ -53,5 +57,6 @@ struct defpatch patch_erasebad={sigbad, sizeof(sigbad), 0};
 
 uint32_t pv7r2 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r2, buf, fsize); }
 uint32_t pv7r11 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r11, buf, fsize); }
+uint32_t pv7r1 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r1, buf, fsize); }
 uint32_t perasebad (uint8_t* buf, uint32_t fsize) { return patch(patch_erasebad, buf, fsize); }
 

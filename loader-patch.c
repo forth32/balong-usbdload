@@ -72,14 +72,31 @@ buf=malloc(fsize);
 fread(buf,1,fsize,in);
 fclose(in);
 
+//==================================================================================
+
+res=pv7r1(buf, fsize);
+if (res != 0)  {
+  printf("\n* Найдена сигнатура типа V7R1 по смещению %08x",res);
+  goto endpatch;
+}  
+
 res=pv7r2(buf, fsize);
-if (res != 0)  printf("\n* Найдена сигнатура типа V7R2 по смещению %08x",res);
-else {
-   res=pv7r11(buf, fsize);
-   if (res != 0)  printf("\n* Найдена сигнатура типа V7R11 по смещению %08x",res);
-   else printf("\n! Сигнатура eraseall-патча не найдена");
+if (res != 0)  {
+  printf("\n* Найдена сигнатура типа V7R2 по смещению %08x",res);
+  goto endpatch;
+}  
+
+res=pv7r11(buf, fsize);
+if (res != 0)  {
+  printf("\n* Найдена сигнатура типа V7R11 по смещению %08x",res);
+  goto endpatch;
 }   
-  
+
+printf("\n! Сигнатура eraseall-патча не найдена");
+
+//==================================================================================
+endpatch:
+
 if (bflag) {
    res=perasebad(buf, fsize);
    if (res != 0) printf("\n* Найдена сигнатура isbad по смещению %08x",res);  
