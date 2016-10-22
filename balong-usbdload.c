@@ -17,6 +17,7 @@
 #else
 //%%%%
 #include <windows.h>
+#include <setupapi.h>
 #include "getopt.h"
 #include "printf.h"
 #endif
@@ -205,7 +206,62 @@ for(off=(size-8);off>0;off--) {
 return 0;
 }
 
+#ifdef WIN32
 
+DEFINE_GUID(GUID_DEVCLASS_PORTS, 0x4D36E978, 0xE325, 0x11CE, 0xBF, 0xC1, 0x08, 0x00, 0x2B, 0xE1, 0x03, 0x18);
+
+static int find_port(int* port_no)
+{
+  HDEVINFO device_info_set;
+  DWORD member_index = 0;
+  SP_DEVINFO_DATA device_info_data;
+  DWORD reg_data_type;
+  char property_buffer[256];
+  DWORD required_size;
+  char* p;
+  int result = 1;
+
+  device_info_set = SetupDiGetClassDevs(&GUID_DEVCLASS_PORTS, NULL, 0, DIGCF_PRESENT);
+
+  if (device_info_set == INVALID_HANDLE_VALUE)
+    return result;
+
+  while (TRUE)
+  {
+    ZeroMemory(&device_info_data, sizeof(SP_DEVINFO_DATA));
+    device_info_data.cbSize = sizeof(SP_DEVINFO_DATA);
+
+    if (!SetupDiEnumDeviceInfo(device_info_set, member_index, &device_info_data))
+      break;
+
+    member_index++;
+
+    if (!SetupDiGetDeviceRegistryPropertyA(device_info_set, &device_info_data, SPDRP_HARDWAREID,
+             &reg_data_type, (PBYTE)property_buffer, sizeof(property_buffer), &required_size))
+      continue;
+
+    if (strstr(_strupr(property_buffer), "VID_12D1&PID_1443") != NULL)
+    {
+      if (SetupDiGetDeviceRegistryPropertyA(device_info_set, &device_info_data, SPDRP_FRIENDLYNAME,
+              &reg_data_type, (PBYTE)property_buffer, sizeof(property_buffer), &required_size))
+      {
+        p = strstr(property_buffer, " (COM");
+        if (p != NULL)
+        {
+          *port_no = atoi(p + 5);
+          result = 0;
+        }
+      }
+      break;
+    }
+  }
+
+  SetupDiDestroyDeviceInfoList(device_info_set);
+
+  return result;
+}
+
+#endif
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
@@ -245,6 +301,7 @@ unsigned char devname[50]="/dev/ttyUSB0";
 #else
 char devname[50]="";
 DWORD bytes_written, bytes_read;
+int port_no;
 #endif
 
 #ifndef WIN32
@@ -316,7 +373,7 @@ printf("\n Утилита предназначена для аварийной U
   }
 }  
 
-printf("\n Аварийный USB-загрузчик Balong-чипсета, версия 2.01, (c) forth32, 2015");
+printf("\n Аварийный USB-загрузчик Balong-чипсета, версия 2.02, (c) forth32, 2015");
 #ifdef WIN32
 printf("\n Порт для Windows 32bit  (c) rust3028, 2016");
 #endif
@@ -429,7 +486,7 @@ for(bl=0;bl<2;bl++) {
   }
   // Удаление процедуры flash_eraseall
   if (!cflag) {
-    res=pv7r2(blk[bl].pbuf, blk[bl].size)+pv7r11(blk[bl].pbuf, blk[bl].size)+pv7r1(blk[bl].pbuf, blk[bl].size);
+    res=pv7r2(blk[bl].pbuf, blk[bl].size)+pv7r11(blk[bl].pbuf, blk[bl].size);
    if (res != 0)  printf("\n\n * Удалена процедура flash_eraseal по смещению %08x",res);
   }   
      
@@ -441,8 +498,18 @@ for(bl=0;bl<2;bl++) {
 #ifdef WIN32
 if (*devname == '\0')
 {
-   printf("\n - Последовательный порт не задан\n"); 
-   return; 
+  printf("\n\nПоиск порта...\n");
+  
+  if (find_port(&port_no) == 0)
+  {
+    sprintf(devname, "%d", port_no);
+    printf("Порт: COM%s\n", devname);
+  }
+  else
+  {
+    printf("Порт не обнаружен!\n");
+    return;
+  }
 }
 #endif
 
