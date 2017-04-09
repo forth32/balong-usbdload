@@ -428,7 +428,10 @@ for(bl=0;bl<2;bl++) {
       blk[bl].pbuf[koff]=0x55; // патч сигнатуры
       blk[bl].size=koff+8; // обрезаем раздел до начала ядра
     }
-    else printf("\n В загрузчике нет ANDROID-компонента - fastboot-загрузка невозможна\n");
+    else {
+        printf("\n В загрузчике нет ANDROID-компонента - fastboot-загрузка невозможна\n");
+        exit(0);
+    }    
   }  
 
   //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
@@ -486,8 +489,12 @@ for(bl=0;bl<2;bl++) {
   }
   // Удаление процедуры flash_eraseall
   if (!cflag) {
-    res=pv7r2(blk[bl].pbuf, blk[bl].size)+pv7r11(blk[bl].pbuf, blk[bl].size);
+    res=pv7r2(blk[bl].pbuf, blk[bl].size)+pv7r11(blk[bl].pbuf, blk[bl].size)+pv7r1(blk[bl].pbuf, blk[bl].size);
    if (res != 0)  printf("\n\n * Удалена процедура flash_eraseal по смещению %08x",res);
+   else {
+       printf("\n Процедура eraseall не найдена в загрузчике - используйте ключ -с для загрузки без патча!\n");
+       return;
+   }    
   }   
      
   
