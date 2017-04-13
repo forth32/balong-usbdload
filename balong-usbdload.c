@@ -210,7 +210,7 @@ return 0;
 
 DEFINE_GUID(GUID_DEVCLASS_PORTS, 0x4D36E978, 0xE325, 0x11CE, 0xBF, 0xC1, 0x08, 0x00, 0x2B, 0xE1, 0x03, 0x18);
 
-static int find_port(int* port_no)
+static int find_port(int* port_no, char* port_name)
 {
   HDEVINFO device_info_set;
   DWORD member_index = 0;
@@ -249,6 +249,7 @@ static int find_port(int* port_no)
         if (p != NULL)
         {
           *port_no = atoi(p + 5);
+          strcpy(port_name, property_buffer);
           result = 0;
         }
       }
@@ -302,6 +303,7 @@ unsigned char devname[50]="/dev/ttyUSB0";
 char devname[50]="";
 DWORD bytes_written, bytes_read;
 int port_no;
+char port_name[256];
 #endif
 
 #ifndef WIN32
@@ -373,7 +375,7 @@ printf("\n Утилита предназначена для аварийной U
   }
 }  
 
-printf("\n Аварийный USB-загрузчик Balong-чипсета, версия 2.02, (c) forth32, 2015");
+printf("\n Аварийный USB-загрузчик Balong-чипсета, версия 2.03, (c) forth32, 2015");
 #ifdef WIN32
 printf("\n Порт для Windows 32bit  (c) rust3028, 2016");
 #endif
@@ -505,12 +507,12 @@ for(bl=0;bl<2;bl++) {
 #ifdef WIN32
 if (*devname == '\0')
 {
-  printf("\n\nПоиск порта...\n");
+  printf("\n\nПоиск порта аварийной загрузки...\n");
   
-  if (find_port(&port_no) == 0)
+  if (find_port(&port_no, port_name) == 0)
   {
     sprintf(devname, "%d", port_no);
-    printf("Порт: COM%s\n", devname);
+    printf("Порт: \"%s\"\n", port_name);
   }
   else
   {
