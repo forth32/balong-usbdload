@@ -24,15 +24,15 @@ for(i=8;i<(fsize-60);i+=4) {
         memcpy(buf+i+fp.sigsize+fp.poffset,nop0,4);
         return i;
 
-      case 1:	
-	c=*(buf+i+fp.sigsize+fp.poffset);
-	c|=0xe0;
-	*(buf+i+fp.sigsize+fp.poffset)=c;
-	return i;
-	
+      case 1:
+        c=*(buf+i+fp.sigsize+fp.poffset);
+        c|=0xe0;
+        *(buf+i+fp.sigsize+fp.poffset)=c;
+        return i;
+
       default:
-	exit(11);
-    }	
+    exit(11);
+    }
   }
 }
 // сигнатрура не найдена
@@ -47,6 +47,10 @@ const char sigburn_v7r22[]={
    0x12, 0x3B, 0xA0, 0xE3, 0x4A, 0x35, 0x4A, 0xE3, 0x00, 0x20, 0xA0, 0xE3,
    0x78, 0x20, 0xC3, 0xE5, 0x79, 0x20, 0xC3, 0xE5, 0x7A, 0x20, 0xC3, 0xE5, 
    0x7B, 0x20, 0xC3, 0xE5, 0x00, 0x00, 0xA0, 0xE3};
+
+const char sigburn_v7r22_2[]={
+   0x18, 0x30, 0x94, 0xE5, 0x10, 0x20, 0x94, 0xE5, 0x0D, 0x00, 0xA0, 0xE1,
+   0x30, 0x40, 0x84, 0xE2, 0x14, 0x30, 0x8D, 0xE5, 0x10, 0x20, 0x8D, 0xE5};
 
 const char sigburn_v7r11[]={
    0x00, 0x00, 0x50, 0xE3, 0x70, 0x80, 0xBD, 0x08, 0x00, 0x30, 0xA0, 0xE3, 
@@ -68,6 +72,7 @@ const char sigburn_v7r1[]={
 const char sigbad[]={0x04, 0x10, 0x8D, 0xE2, 0x04, 0x00, 0xA0, 0xE1};
 
 struct defpatch patch_v7r22={sigburn_v7r22, sizeof(sigburn_v7r22), -37};
+struct defpatch patch_v7r22_2={sigburn_v7r22_2, sizeof(sigburn_v7r22_2), 0};
 struct defpatch patch_v7r11={sigburn_v7r11, sizeof(sigburn_v7r11), 4};   
 struct defpatch patch_v7r2={sigburn_v7r2, sizeof(sigburn_v7r2), 16};   
 struct defpatch patch_v7r1={sigburn_v7r1, sizeof(sigburn_v7r1), 0};   
@@ -82,5 +87,6 @@ uint32_t pv7r2 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r2, buf, fs
 uint32_t pv7r11 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r11, buf, fsize,0); }
 uint32_t pv7r1 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r1, buf, fsize,0); }
 uint32_t pv7r22 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r22, buf, fsize,1); }
+uint32_t pv7r22_2 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r22_2, buf, fsize,0); }
 uint32_t perasebad (uint8_t* buf, uint32_t fsize) { return patch(patch_erasebad, buf, fsize,0); }
 
