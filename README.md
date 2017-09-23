@@ -7,7 +7,12 @@
 Утилита для аварийной USB-загрузки модемов на чипсете Balong V2R7, V7R11 и V7R22.
 Позволяет загрузить внешний загрузчик-прошивальщик (usbloader) через аварийный USB-serial порт загрузки, создаваемый модемом при повреждении прошивки или замыкании на землю контакта аварийной загрузки на плате модема.
 
-Многие загрузчики могут быть автоматически пропатчены данной утилитой в процессе загрузки. Патч необходим потому, что оригинальный usbloader стирает всю флеш-память в процессе загрузки, включа уникальные данные, хранящиеся в nvram.
+Многие загрузчики могут быть автоматически пропатчены данной утилитой в процессе загрузки. Патч необходим потому, что оригинальный usbloader стирает всю флеш-память в процессе загрузки, включая уникальные данные, хранящиеся в NVRAM.
+
+**Эта утилита может вывести ваше устройство из строя!**  
+Используйте ее, только если осознаете все риски и последствия. В случае каких-либо возникших проблем, не ждите помощи, рассчитывайте только на свои собственные силы.
+
+Пожалуйста, воздержитесь от любых вопросов, не касающихся программы напрямую, в том числе и о вопросах о файлах-загрузчиках. У нас их нет. Нет, мы не знаем, где их взять.
 
 ## English section
 
@@ -15,6 +20,9 @@
 
 Balong-usbdload is an emergency USB boot loader utility for Huawei LTE modems and routers with Balong V2R7, V7R11 and V7R22 chipsets.  
 It loads external boot loader/firmware update tool file (usbloader.bin) via emergency serial port available if the firmware is corrupted or boot pin (test point) is shorted to the ground.
+
+**This utility can make your device unbootable!**  
+Use it only if you fully understand all risks and consequences. In case of any issues, you're on your own. Do not expect any help.
 
 ### Where to get USB loader files (usbloader.bin)?
 
@@ -30,7 +38,7 @@ This repository contains "loader-patch" automatic patcher to convert usbloader.b
 
 ### English user interface
 
-The language of these utilities is Russian. I am not going to translate it into English. If necessary - use a google translator
+The language of these utilities is Russian. I am not going to translate it into English. Use machine translation if needed.
 
 ### Getting help
 
