@@ -52,6 +52,10 @@ const char sigburn_v7r22_2[]={
    0x18, 0x30, 0x94, 0xE5, 0x10, 0x20, 0x94, 0xE5, 0x0D, 0x00, 0xA0, 0xE1,
    0x30, 0x40, 0x84, 0xE2, 0x14, 0x30, 0x8D, 0xE5, 0x10, 0x20, 0x8D, 0xE5};
 
+const char sigburn_v7r22_3[]={
+   0x10, 0x30, 0x94, 0xE5, 0x0D, 0x00, 0xA0, 0xE1, 0x10, 0x30, 0x8D, 0xE5,
+   0x18, 0x30, 0x94, 0xE5, 0x14, 0x30, 0x8D, 0xE5};
+
 const char sigburn_v7r11[]={
    0x00, 0x00, 0x50, 0xE3, 0x70, 0x80, 0xBD, 0x08, 0x00, 0x30, 0xA0, 0xE3, 
    0x4E, 0x26, 0x04, 0xE3, 0xE0, 0x3F, 0x44, 0xE3, 0x55, 0x22, 0x44, 0xE3, 
@@ -73,6 +77,7 @@ const char sigbad[]={0x04, 0x10, 0x8D, 0xE2, 0x04, 0x00, 0xA0, 0xE1};
 
 struct defpatch patch_v7r22={sigburn_v7r22, sizeof(sigburn_v7r22), -37};
 struct defpatch patch_v7r22_2={sigburn_v7r22_2, sizeof(sigburn_v7r22_2), 0};
+struct defpatch patch_v7r22_3={sigburn_v7r22_3, sizeof(sigburn_v7r22_3), 0};
 struct defpatch patch_v7r11={sigburn_v7r11, sizeof(sigburn_v7r11), 4};   
 struct defpatch patch_v7r2={sigburn_v7r2, sizeof(sigburn_v7r2), 16};   
 struct defpatch patch_v7r1={sigburn_v7r1, sizeof(sigburn_v7r1), 0};   
@@ -88,5 +93,6 @@ uint32_t pv7r11 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r11, buf, 
 uint32_t pv7r1 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r1, buf, fsize,0); }
 uint32_t pv7r22 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r22, buf, fsize,1); }
 uint32_t pv7r22_2 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r22_2, buf, fsize,0); }
+uint32_t pv7r22_3 (uint8_t* buf, uint32_t fsize) { return patch(patch_v7r22_3, buf, fsize,0); }
 uint32_t perasebad (uint8_t* buf, uint32_t fsize) { return patch(patch_erasebad, buf, fsize,0); }
 
