@@ -1,8 +1,18 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdint.h>
+
+#ifndef WIN32
+//%%%%
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#else
+//%%%%
+#include <windows.h>
+#include "getopt.h"
+#include "printf.h"
+#endif
+
 #include "patcher.h"
 
 
@@ -56,7 +66,7 @@ printf("\n Программа автоматической модификаци�
     return;
 }  
     
-in=fopen(argv[optind],"r");
+in=fopen(argv[optind],"rb");
 if (in == 0) {
   printf("\n Ошибка открытия файла %s",argv[optind]);
   return;
@@ -73,24 +83,6 @@ fread(buf,1,fsize,in);
 fclose(in);
 
 //==================================================================================
-
-res=pv7r22_3(buf, fsize);
-if (res != 0)  {
-  printf("\n* Найдена сигнатура типа V7R22_3 по смещению %08x",res);
-  goto endpatch;
-}
-
-res=pv7r22_2(buf, fsize);
-if (res != 0)  {
-  printf("\n* Найдена сигнатура типа V7R22_2 по смещению %08x",res);
-  goto endpatch;
-}
-
-res=pv7r22(buf, fsize);
-if (res != 0)  {
-  printf("\n* Найдена сигнатура типа V7R22 по смещению %08x",res);
-  goto endpatch;
-}  
 
 res=pv7r1(buf, fsize);
 if (res != 0)  {
@@ -110,6 +102,24 @@ if (res != 0)  {
   goto endpatch;
 }   
 
+res=pv7r22(buf, fsize);
+if (res != 0)  {
+  printf("\n* Найдена сигнатура типа V7R22 по смещению %08x",res);
+  goto endpatch;
+}  
+
+res=pv7r22_2(buf, fsize);
+if (res != 0)  {
+  printf("\n* Найдена сигнатура типа V7R22_2 по смещению %08x",res);
+  goto endpatch;
+}
+
+res=pv7r22_3(buf, fsize);
+if (res != 0)  {
+  printf("\n* Найдена сигнатура типа V7R22_3 по смещению %08x",res);
+  goto endpatch;
+}
+
 printf("\n! Сигнатура eraseall-патча не найдена");
 
 //==================================================================================
@@ -122,7 +132,7 @@ if (bflag) {
 }
 
 if (oflag) {
-  out=fopen(outfilename,"w");
+  out=fopen(outfilename,"wb");
   if (out != 0) {
     fwrite(buf,1,fsize,out);
     fclose(out);

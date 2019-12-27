@@ -2,15 +2,14 @@
 //
 //
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <stdint.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
 #ifndef WIN32
 //%%%%
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -322,7 +321,8 @@ printf("\n Утилита предназначена для аварийной U
 #ifndef WIN32
 "-p <tty> - последовательный порт для общения с загрузчиком (по умолчанию /dev/ttyUSB0)\n"
 #else
-"-p <tty> - последовательный порт для общения с загрузчиком\n"
+"-p # - номер последовательного порта для общения с загрузчиком (например, -p8)\n"
+"  если ключ -p не указан, производится автоопределение порта\n"
 #endif
 "-f       - грузить usbloader только до fastboot (без запуска линукса)\n\
 -b       - аналогично -f, дополнительно отключить проверку дефектных блоков при стирании\n\
@@ -375,7 +375,7 @@ printf("\n Утилита предназначена для аварийной U
   }
 }  
 
-printf("\n Аварийный USB-загрузчик Balong-чипсета, версия 2.03, (c) forth32, 2015");
+printf("\n Аварийный USB-загрузчик Balong-чипсета, версия 2.20, (c) forth32, 2015");
 #ifdef WIN32
 printf("\n Порт для Windows 32bit  (c) rust3028, 2016");
 #endif
@@ -491,17 +491,24 @@ for(bl=0;bl<2;bl++) {
   }
   // Удаление процедуры flash_eraseall
   if (!cflag) {
-    res=pv7r2(blk[bl].pbuf, blk[bl].size) + pv7r11(blk[bl].pbuf, blk[bl].size) \
-        + pv7r1(blk[bl].pbuf, blk[bl].size) + pv7r22(blk[bl].pbuf, blk[bl].size) \
-        + pv7r22_2(blk[bl].pbuf, blk[bl].size) + pv7r22_3(blk[bl].pbuf, blk[bl].size);
-   if (res != 0)  printf("\n\n * Удалена процедура flash_eraseal по смещению %08x",res);
-   else {
-       printf("\n Процедура eraseall не найдена в загрузчике - используйте ключ -с для загрузки без патча!\n");
-       return;
-   }    
-  }   
-     
-  
+      res = pv7r1(blk[bl].pbuf, blk[bl].size);
+      if (res == 0)
+          res = pv7r2(blk[bl].pbuf, blk[bl].size);
+      if (res == 0)
+          res = pv7r11(blk[bl].pbuf, blk[bl].size);
+      if (res == 0)
+          res = pv7r22(blk[bl].pbuf, blk[bl].size);
+      if (res == 0)
+          res = pv7r22_2(blk[bl].pbuf, blk[bl].size);
+      if (res == 0)
+          res = pv7r22_3(blk[bl].pbuf, blk[bl].size);
+      if (res != 0)  printf("\n\n * Удалена процедура flash_eraseall по смещению %08x", blk[bl].offset + res);
+      else {
+          printf("\n Процедура eraseall не найдена в загрузчике - используйте ключ -с для загрузки без патча!\n");
+          return;
+      }
+  }
+
 }
 
 //---------------------------------------------------------------------

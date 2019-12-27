@@ -3,9 +3,19 @@
 // 
 #include <stdio.h>
 #include <stdint.h>
+
+#ifndef WIN32
+//%%%%
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#else
+//%%%%
+#include <windows.h>
+#include "getopt.h"
+#include "printf.h"
+#endif
+
 #include "parts.h"
 
   
@@ -31,7 +41,6 @@ while ((opt = getopt(argc, argv, "mr:hx")) != -1) {
    case 'h': 
      
 printf("\n Утилита для замены таблицы разделов в загрузчиках usbloader\
-\n Модем должен находиться в режиме fastboot\
 \n\n\
 %s [ключи] <имя файла usbloader>\n\n\
  Допустимы следующие ключи:\n\n\
@@ -65,7 +74,7 @@ if (optind>=argc) {
     return;
 }  
 
-ldr=fopen(argv[optind],"r+");
+ldr=fopen(argv[optind],"r+b");
 if (ldr == 0) {
   printf("\n Ошибка открытия файла %s\n",argv[optind]);
   return;
@@ -83,7 +92,7 @@ if (ptaddr == 0) {
 fread(&ptable,sizeof(ptable),1,ldr);
 
 if (xflag) {
-   out=fopen("ptable.bin","w");
+   out=fopen("ptable.bin","wb");
    fwrite(&ptable,sizeof(ptable),1,out);
    fclose(out);
 }   
@@ -96,7 +105,7 @@ if (mflag | xflag) return;
 
   
 if (rflag) { 
-  in=fopen(ptfile,"r");
+  in=fopen(ptfile,"rb");
   if (in == 0) {
     printf("\n Ошибка открытия файла %s",ptfile);
     return;

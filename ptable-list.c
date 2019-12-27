@@ -3,9 +3,19 @@
 // 
 #include <stdio.h>
 #include <stdint.h>
+
+#ifndef WIN32
+//%%%%
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#else
+//%%%%
+#include <windows.h>
+#include "getopt.h"
+#include "printf.h"
+#endif
+
 #include "parts.h"
 
   
@@ -23,7 +33,7 @@ if (argc != 2) {
     return;
 }  
 
-in=fopen(argv[optind],"r+");
+in=fopen(argv[optind],"r+b");
 if (in == 0) {
   printf("\n Ошибка открытия файла %s\n",argv[optind]);
   return;
