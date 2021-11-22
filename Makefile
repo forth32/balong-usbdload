@@ -16,7 +16,7 @@ clean:
 #.c.o:
 #	$(CC) -o $@ $(LIBS) $^ qcio.o
 
-balong-usbdload: balong-usbdload.o parts.o patcher.o
+balong-usbdload: balong-usbdload.o parts.o patcher.o exploit.o
 	@gcc $^ -o $@ $(LIBS)
 
 ptable-injector: ptable-injector.o parts.o
