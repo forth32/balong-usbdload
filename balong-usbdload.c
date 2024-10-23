@@ -23,6 +23,7 @@
 
 #include "parts.h"
 #include "patcher.h"
+#include "exploit.h"
 
 
 #ifndef WIN32
@@ -270,7 +271,7 @@ void main(int argc, char* argv[]) {
 unsigned int i,res,opt,datasize,pktcount,adr;
 int bl;    // текущий блок
 unsigned char c;
-int fbflag=0, tflag=0, mflag=0, bflag=0, cflag=0;
+int fbflag=0, tflag=0, mflag=0, bflag=0, cflag=0, xflag=0;
 int koff;  // смещение до ANDROID-заголовка
 char ptfile[100];
 
@@ -311,7 +312,7 @@ bzero(fileflag,sizeof(fileflag));
 memset(fileflag, 0, sizeof(fileflag));
 #endif
 
-while ((opt = getopt(argc, argv, "hp:ft:ms:bc")) != -1) {
+while ((opt = getopt(argc, argv, "hp:ft:ms:bcx:")) != -1) {
   switch (opt) {
    case 'h': 
      
@@ -330,6 +331,14 @@ printf("\n Утилита предназначена для аварийной U
 -m       - показать таблицу разделов загрузчика и завершить работу\n\
 -s n     - установить файловый флаг для раздела n (ключ можно указать несколько раз)\n\
 -c       - не производить автоматический патч стирания разделов\n\
+-x <1-6> - обойти secuboot и загрузить неподписанный загрузчик (1=Balong V7R1, 2=V7R2/V7R11, 3=V7R22, 4=V7R5, 5=V7R65, 6=5000)\n\
+           (1) V7R1:  E3272, E3276, E5372 (Hi6920)\n\
+           (2) V7R2:  E3372s, E5373, E5377, E5786 (Hi6930)\n\
+           (2) V7R11: E3372h, E8372h, E5573, E5576, B310, B315s (Hi6921)\n\
+           (3) V7R22: E5785, E5885, B316, B525, B528, B535 (Hi6932)\n\
+           (4) V7R5:  B612s, B618s, B715s (Hi6950)\n\
+           (5) V7R65: B625, B818 (Hi6965)\n\
+           (6) 5000:  H112, H122, E6878 (Hi9500)\
 \n",argv[0]);
     return;
 
@@ -367,7 +376,15 @@ printf("\n Утилита предназначена для аварийной U
      }
      fileflag[i]=1;
      break;
-     
+
+    case 'x':
+     xflag=atoi(optarg);
+     if (xflag>6) {
+       printf("\n Обход secuboot %d не поддерживается\n", xflag);
+       return;
+     }
+     break;
+
    case '?':
    case ':':  
      return;
@@ -557,6 +574,24 @@ if (c != 0x55) {
 // главный цикл загрузки - загружаем все блоки, найденные в заголовке
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
 
+switch (xflag) {
+    case 1:
+        secuboot_exploit_v7r1();
+        break;
+    case 2:
+        secuboot_exploit_v7r11();
+        break;
+    case 3:
+        secuboot_exploit_v7r22();
+        break;
+    case 4:
+        secuboot_exploit_v7r5();
+        break;
+    case 6:
+        secuboot_exploit_5000();
+        break;
+}
+
 printf("\n\n Компонент    Адрес    Размер   %%загрузки\n------------------------------------------\n");
 
 for(bl=0;bl<2;bl++) {
@@ -602,6 +637,11 @@ for(bl=0;bl<2;bl++) {
   // Фрмируем пакет конца данных
   cmdeod[1]=pktcount;
   cmdeod[2]=(~pktcount)&0xff;
+
+  if (xflag == 5 && bl == 1) {
+    secuboot_exploit_v7r65(blk[bl].adr + 0x1000);
+    break;
+  }
 
   if (!sendcmd(cmdeod,5)) {
     printf("\nМодем отверг пакет конца данных");
