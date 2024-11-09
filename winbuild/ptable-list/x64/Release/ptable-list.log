@@ -1,0 +1,8 @@
+﻿  parts.c
+  ptable-list.c
+  getopt.c
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 5 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  ptable-list.vcxproj -> C:\Users\Kaan\Downloads\5785\balong-usbdload\winbuild\x64\Release\ptable-list.exe

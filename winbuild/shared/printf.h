@@ -1,4 +1,10 @@
-static int printf(const char* format, ...)
+#ifndef PRINTF_H
+#define PRINTF_H
+
+#include <stdarg.h>
+#include <Windows.h>
+
+static int my_printf(const char* format, ...)
 {
     static char ostr[2048];
     static wchar_t wstr[2048];
@@ -11,3 +17,5 @@ static int printf(const char* format, ...)
     WideCharToMultiByte(CP_OEMCP, 0, wstr, -1, ostr, 2048, NULL, NULL);
     return printf_s("%s", ostr);
 }
+
+#endif // PRINTF_H

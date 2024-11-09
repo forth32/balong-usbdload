@@ -1,0 +1,7 @@
+﻿  exploit.c
+C:\Users\Kaan\Downloads\5785\balong-usbdload\exploit.c(17,27): warning C4018: '<': signed/unsigned mismatch
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 38 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  balong_usbdload.vcxproj -> C:\Users\Kaan\Downloads\5785\balong-usbdload\winbuild\x64\Release\balong_usbdload.exe

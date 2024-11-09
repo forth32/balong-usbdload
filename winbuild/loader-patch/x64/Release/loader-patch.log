@@ -1,0 +1,8 @@
+﻿  loader-patch.c
+  patcher.c
+  getopt.c
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 21 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  loader-patch.vcxproj -> C:\Users\Kaan\Downloads\5785\balong-usbdload\winbuild\x64\Release\loader-patch.exe

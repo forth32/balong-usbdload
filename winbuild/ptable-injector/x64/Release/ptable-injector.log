@@ -1,0 +1,8 @@
+﻿  parts.c
+  ptable-injector.c
+  getopt.c
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 15 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  ptable-injector.vcxproj -> C:\Users\Kaan\Downloads\5785\balong-usbdload\winbuild\x64\Release\ptable-injector.exe
