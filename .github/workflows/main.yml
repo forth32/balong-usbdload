@@ -1,0 +1,112 @@
+name: Build and Release balong_flash (Linux & Windows)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build using Make (Linux)
+        run: make all
+
+      - name: Zip Binary for Release (Linux)
+        run: zip balong_flash-linux.zip balong_flash balong-usbdload ptable-injector loader-patch ptable-list # Zip all binaries
+
+      - name: Upload binaries as artifacts (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: balong_flash-binaries-linux
+          path: |
+            balong_flash
+            balong-usbdload
+            ptable-injector
+            loader-patch
+            ptable-list
+
+      - name: Create Release (Linux)
+        id: create_release_linux
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          body: |
+            Automated release of compiled binaries (Linux) from workflow run #${{ github.run_number }}.
+            See workflow run logs for details.
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset (Linux)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release_linux.outputs.upload_url }}
+          asset_path: balong_flash-linux.zip
+          asset_name: balong_flash-linux.zip
+          asset_content_type: application/zip
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2 (MinGW)
+        uses: msys2/setup-msys2@v2
+        with:
+          msys2-packages: mingw-w64-x86_64-gcc mingw-w64-x86_64-make zlib # Install GCC, Make, zlib for MinGW
+          update: true
+
+      - name: Build using Make (Windows MinGW) - Set PATH and include path
+        shell: bash # Important: Use bash shell provided by MSYS2
+        run: |
+          PATH="/c/msys64/mingw64/bin:$PATH" # Prepend MSYS2 MinGW bin to PATH
+          make CFLAGS="-I/mingw64/include $CFLAGS" all
+
+      - name: Zip Binary for Release (Windows)
+        run: Compress-Archive -Path balong_flash,balong-usbdload,ptable-injector,loader-patch,ptable-list -DestinationPath balong_flash-windows.zip # PowerShell for zipping
+
+      - name: Upload binaries as artifacts (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: balong_flash-binaries-windows
+          path: |
+            balong_flash
+            balong-usbdload
+            ptable-injector
+            loader-patch
+            ptable-list
+
+      - name: Create Release (Windows)
+        id: create_release_windows # Use different ID to avoid conflicts
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          body: |
+            Automated release of compiled binaries (Windows) from workflow run #${{ github.run_number }}.
+            See workflow run logs for details.
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset (Windows)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release_windows.outputs.upload_url }} # Use ID for Windows release step
+          asset_path: balong_flash-windows.zip
+          asset_name: balong_flash-windows.zip
+          asset_content_type: application/zip
